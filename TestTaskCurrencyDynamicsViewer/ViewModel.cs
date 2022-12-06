@@ -1,14 +1,20 @@
 ﻿using LiveCharts;
 using LiveCharts.Wpf;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Security.AccessControl;
+using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 
 namespace TestTaskCurrencyDynamicsViewer
@@ -42,6 +48,12 @@ namespace TestTaskCurrencyDynamicsViewer
             get => periodTo;
             set => Set(ref periodTo, value);
         }
+        private string inCurrency;
+        public string InCurrency
+        {
+            get => inCurrency;
+            set => Set(ref inCurrency, value);
+        }
 
         string currentCurrency;
         public string SelectedCurrency
@@ -54,8 +66,7 @@ namespace TestTaskCurrencyDynamicsViewer
 
         public ViewModel()
         {
-            CurrencyNames = new ObservableCollection<string> { "RUB", "USD", "EUR" };
-            YFormatter = value => String.Format("{0:0,0.0} BYN", value);
+            CurrencyNames = new ObservableCollection<string> { "RUB", "USD", "EUR", "BTC" };
             SelectedCurrency = "USD";
         }
 
@@ -65,15 +76,44 @@ namespace TestTaskCurrencyDynamicsViewer
             {
                 return new RelayCommand(() =>
                 {
+                    string json = "";
+                    using (var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }))
+                    {
+                        client.BaseAddress = new Uri($"https://localhost:5001/currency/");
+                        HttpResponseMessage response;
+                        try
+                        {
+                            response = client.GetAsync($"{LeftCurrentDt.ToString("MM.dd.yyyy")}-{RightCurrentDt.ToString("MM.dd.yyyy")}-{SelectedCurrency}").Result;
+                        }
+                        catch (AggregateException ex)
+                        {
+                            MessageBox.Show("Сервер по адресу localhost:5001 не доступен. Убедитесь, что TestTaskCurrencyAPI.exe работает. ");
+                            return;
+                        }
+                        try
+                        {
+                            response.EnsureSuccessStatusCode();
+                        }
+                        catch (System.Net.Http.HttpRequestException)
+                        {
+                            MessageBox.Show("Не удалось получить данные с сервера (localhost:5001)");
+                            return;
+                        }
+
+                        json = response.Content.ReadAsStringAsync().Result;
+                    }
+                    var objs = JsonConvert.DeserializeObject<List<CurrencyValue>>(json).OrderBy(x => x.Date).ToList();
+
                     SeriesCollection = new SeriesCollection
                     {
                         new LineSeries
                         {
-                            Title = $"Курс {SelectedCurrency}",
-                            Values = new ChartValues<int>(Enumerable.Range(0, (int)(RightCurrentDt - LeftCurrentDt).TotalDays).Select(x => new Random().Next()))
+                            Title = $"Курс {(objs.FirstOrDefault()?.Amount + " " ?? "")}{SelectedCurrency}",
+                            Values = new ChartValues<double>(objs.Select(y => y.Value).ToList())
                         }
                     };
-                    Labels = Enumerable.Range(0, (int)(RightCurrentDt - LeftCurrentDt).TotalDays).Select((v, i) => LeftCurrentDt.AddDays(i).ToShortDateString()).ToArray();
+                    Labels = objs.Select(y => y.Date.ToString("dd.MM.yy")).ToArray();
+                    InCurrency = objs.FirstOrDefault()?.InCurrency ?? "";
                 });
             }
         }

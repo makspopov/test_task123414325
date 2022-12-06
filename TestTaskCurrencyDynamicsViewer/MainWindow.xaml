@@ -39,7 +39,7 @@
         </StackPanel>
         <lvc:CartesianChart Grid.Row ="1" Margin="10" Series="{Binding SeriesCollection}" LegendLocation="Right" >
             <lvc:CartesianChart.AxisY>
-                <lvc:Axis Title="BYN" LabelFormatter="{Binding YFormatter}"></lvc:Axis>
+                <lvc:Axis Title="{Binding InCurrency}" LabelFormatter="{Binding YFormatter}"></lvc:Axis>
             </lvc:CartesianChart.AxisY>
             <lvc:CartesianChart.AxisX>
                 <lvc:Axis Title="День" Labels="{Binding Labels}"></lvc:Axis>

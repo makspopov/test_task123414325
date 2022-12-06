@@ -34,7 +34,7 @@ interface IGetCurrencyValue
     List<CurrencyValue> GetCurrencyValues(DateTime startDate, DateTime endDate, string currency);
 }
 
-class CurrencyValue
+public class CurrencyValue
 {
     [JsonProperty("Date")] 
     private string dateJson { get; set; }
@@ -43,7 +43,10 @@ class CurrencyValue
     {
         get
         {
-            return DateTime.ParseExact(dateJson, "dd.MM.yyyy", CultureInfo.InvariantCulture);
+            if (DateTime.TryParseExact(dateJson, "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed))
+                return parsed;
+            else return DateTime.ParseExact(dateJson, "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
+            //return DateTime.ParseExact(dateJson, "dd.MM.yyyy", CultureInfo.InvariantCulture);
         }
         set
         {
@@ -107,6 +110,8 @@ class RandomValue : IGetCurrencyForDate
 {
     public CurrencyValue getValueForDate(DateTime dt, string currency)
     {
-        return new CurrencyValue(dt, new Random().NextDouble(), currency, 1, "BYN");
+        if (currency == "BTC") return new CurrencyValue(dt, new Random().NextDouble(), currency, 1, "USD");
+        else if (currency == "RUB") return new CurrencyValue(dt, new Random().NextDouble(), currency, 100, "BYN");
+        else return new CurrencyValue(dt, new Random().NextDouble(), currency, 1, "BYN");
     }
 }
