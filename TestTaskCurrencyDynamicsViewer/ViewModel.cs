@@ -25,7 +25,7 @@ namespace TestTaskCurrencyDynamicsViewer
     public class ViewModel : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
-        private string logPath; 
+        private string logPath;
         protected virtual void OnPropertyChanged([CallerMemberName] string PropertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(PropertyName));
@@ -38,50 +38,49 @@ namespace TestTaskCurrencyDynamicsViewer
             return true;
         }
 
-        private int _windowHeight; 
+        void SaveSettings(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "WindowHeight") Properties.Settings.Default.WindowHeight = WindowHeight;
+            else if (e.PropertyName == "WindowWidth") Properties.Settings.Default.WindowWidth = WindowWidth;
+            else if (e.PropertyName == "WindowTop") Properties.Settings.Default.WindowTop = WindowTop;
+            else if (e.PropertyName == "WindowLeft") Properties.Settings.Default.WindowLeft = WindowLeft;
+            else if (e.PropertyName == "LeftCurrentDt") Properties.Settings.Default.LeftDate = LeftCurrentDt;
+            else if (e.PropertyName == "RightCurrentDt") Properties.Settings.Default.RightDate = RightCurrentDt;
+            else if (e.PropertyName == "SelectedCurrency") Properties.Settings.Default.Currency = SelectedCurrency;
+            Properties.Settings.Default.Save();
+        }
+
+        void LogChanges(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "LeftCurrentDt") File.AppendAllLines(logPath, new List<string>() { $"Начальная дата изменена на {LeftCurrentDt}" });
+            else if (e.PropertyName == "RightCurrentDt") File.AppendAllLines(logPath, new List<string>() { $"Конечная дата изменена на {RightCurrentDt}" });
+            else if (e.PropertyName == "SelectedCurrency") File.AppendAllLines(logPath, new List<string>() { $"Выбранная валюта изменена на {SelectedCurrency}" });
+        }
+
+        private int _windowHeight;
         public int WindowHeight
         {
             get => _windowHeight;
-            set
-            {
-                Properties.Settings.Default.WindowHeight = value;
-                Properties.Settings.Default.Save();
-                Set(ref _windowHeight, value);
-            }
+            set => Set(ref _windowHeight, value);
         }
         private int _windowWidth;
         public int WindowWidth
         {
             get => _windowWidth;
-            set
-            {
-                Properties.Settings.Default.WindowWidth = value;
-                Properties.Settings.Default.Save();
-                Set(ref _windowWidth, value);
-            }
+            set => Set(ref _windowWidth, value);
         }
 
         private int _windowTop;
         public int WindowTop
         {
             get => _windowTop;
-            set
-            {
-                Properties.Settings.Default.WindowTop = value;
-                Properties.Settings.Default.Save(); 
-                Set(ref _windowTop, value);
-            }
+            set => Set(ref _windowTop, value);
         }
         private int _windowLeft;
         public int WindowLeft
         {
-            get => _windowTop;
-            set
-            {
-                Properties.Settings.Default.WindowLeft = value;
-                Properties.Settings.Default.Save();
-                Set(ref _windowLeft, value);
-            }
+            get => _windowLeft;
+            set => Set(ref _windowLeft, value);
         }
 
         private DateTime periodFrom = DateTime.Today.AddDays(-10);
@@ -94,11 +93,7 @@ namespace TestTaskCurrencyDynamicsViewer
             set
             {
                 if (value >= leftMinDt & value <= RightCurrentDt)
-                {
-                    Properties.Settings.Default.LeftDate = value;
-                    Properties.Settings.Default.Save();
                     Set(ref periodFrom, value);
-                }                    
             }
         }
         public DateTime RightCurrentDt
@@ -107,11 +102,7 @@ namespace TestTaskCurrencyDynamicsViewer
             set
             {
                 if (value >= LeftCurrentDt & value <= rightMaxDt)
-                {
-                    Properties.Settings.Default.RightDate = value;
-                    Properties.Settings.Default.Save();
                     Set(ref periodTo, value);
-                }                
             }
         }
         private string inCurrency;
@@ -131,12 +122,7 @@ namespace TestTaskCurrencyDynamicsViewer
         public string SelectedCurrency
         {
             get => currentCurrency;
-            set
-            {
-                Properties.Settings.Default.Currency = value;
-                Properties.Settings.Default.Save(); 
-                Set(ref currentCurrency, value);
-            }
+            set => Set(ref currentCurrency, value);
         }
 
         public ObservableCollection<string> CurrencyNames { get; set; }
@@ -153,6 +139,8 @@ namespace TestTaskCurrencyDynamicsViewer
             WindowTop = Properties.Settings.Default.WindowTop;
             WindowLeft = Properties.Settings.Default.WindowLeft;
             logPath = Path.Combine(AppContext.BaseDirectory, "clientLog.txt");
+            PropertyChanged += SaveSettings;
+            PropertyChanged += LogChanges;
         }
 
         public RelayCommand ShowDataCommand
@@ -208,7 +196,7 @@ namespace TestTaskCurrencyDynamicsViewer
                         string notificationText = $"Для указанного диапазона дат данные с {notFound.Min(x => x.Date)} до {notFound.Max(x => x.Date)} не доступны в API НБ РБ!";
                         File.AppendAllLines(logPath, new List<string>() { notificationText });
                         MessageBox.Show(notificationText);
-                    }                        
+                    }
 
                     SeriesCollection = new SeriesCollection
                     {

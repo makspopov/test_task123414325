@@ -26,6 +26,7 @@ app.MapGet("/currency", () =>
 
 app.MapGet("/currency/{stdt:datetime}-{enddt:datetime}-{curr}", (DateTime stdt, DateTime enddt, string curr) =>
 {
+    app.Logger.LogInformation($"Processing request: from {stdt} to {enddt} for {curr}"); 
     if (!availableCurrencies.Contains(curr)) throw new Exception();
     return app.Services.GetService<IGetCurrencyValue>()?.GetCurrencyValues(stdt, enddt, curr);
 });
