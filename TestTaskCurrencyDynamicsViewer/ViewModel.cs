@@ -16,6 +16,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Markup;
 
 namespace TestTaskCurrencyDynamicsViewer
 {
@@ -54,6 +55,12 @@ namespace TestTaskCurrencyDynamicsViewer
             get => inCurrency;
             set => Set(ref inCurrency, value);
         }
+        string _title;
+        public string Title
+        {
+            get => _title;
+            set => Set(ref _title, value);
+        }
 
         string currentCurrency;
         public string SelectedCurrency
@@ -68,6 +75,7 @@ namespace TestTaskCurrencyDynamicsViewer
         {
             CurrencyNames = new ObservableCollection<string> { "RUB", "USD", "EUR", "BTC" };
             SelectedCurrency = "USD";
+            Title = "Просмотр курсов валют";
         }
 
         public RelayCommand ShowDataCommand
@@ -76,6 +84,8 @@ namespace TestTaskCurrencyDynamicsViewer
             {
                 return new RelayCommand(() =>
                 {
+                    List<CurrencyValue> objs = new List<CurrencyValue>();
+                    Title = "Просмотр курсов валют - получение данных из API";
                     string json = "";
                     using (var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }))
                     {
@@ -88,6 +98,7 @@ namespace TestTaskCurrencyDynamicsViewer
                         catch (AggregateException ex)
                         {
                             MessageBox.Show("Сервер по адресу localhost:5001 не доступен. Убедитесь, что TestTaskCurrencyAPI.exe работает. ");
+                            Title = "Просмотр курсов валют";
                             return;
                         }
                         try
@@ -97,23 +108,28 @@ namespace TestTaskCurrencyDynamicsViewer
                         catch (System.Net.Http.HttpRequestException)
                         {
                             MessageBox.Show("Не удалось получить данные с сервера (localhost:5001)");
+                            Title = "Просмотр курсов валют";
                             return;
                         }
 
                         json = response.Content.ReadAsStringAsync().Result;
                     }
-                    var objs = JsonConvert.DeserializeObject<List<CurrencyValue>>(json).OrderBy(x => x.Date).ToList();
+                    objs = JsonConvert.DeserializeObject<List<CurrencyValue>>(json).OrderBy(x => x.Date).ToList();
+                    var notFound = objs.Where(x => x.StatusCode == 404).ToList();
+                    if (notFound.Count > 0)
+                        MessageBox.Show($"Для указанного диапазона дат данные с {notFound.Min(x => x.Date)} до {notFound.Max(x => x.Date)} не доступны в API НБ РБ!");
 
                     SeriesCollection = new SeriesCollection
                     {
                         new LineSeries
                         {
-                            Title = $"Курс {(objs.FirstOrDefault()?.Amount + " " ?? "")}{SelectedCurrency}",
+                            Title = $"Курс {(objs.FirstOrDefault(x => x.StatusCode != 404)?.Amount + " " ?? "")}{SelectedCurrency}",
                             Values = new ChartValues<double>(objs.Select(y => y.Value).ToList())
                         }
                     };
                     Labels = objs.Select(y => y.Date.ToString("dd.MM.yy")).ToArray();
-                    InCurrency = objs.FirstOrDefault()?.InCurrency ?? "";
+                    InCurrency = objs.FirstOrDefault(x => x.StatusCode != 404)?.InCurrency ?? "";
+                    Title = "Просмотр курсов валют";
                 });
             }
         }

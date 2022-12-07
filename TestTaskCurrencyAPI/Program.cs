@@ -2,13 +2,16 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using System.Net;
 
-var availableCurrencies = new List<string>() { "USD", "EUR", "RUB", "BTC" };
+var availableCurrencies = new List<string>() { "USD", "EUR", "RUB"/*, "BTC"*/ };
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSingleton<IGetCurrencyValue>(x => new CurrencyGetter(new RandomValue()));
+//builder.Services.AddSingleton<IGetCurrencyValue>(x => new CurrencyGetter(new RandomValue()));
+builder.Services.AddSingleton<IGetCurrencyValue>(x => new CurrencyGetter(new ExternalAPI()));
 
 var app = builder.Build();
 
@@ -36,7 +39,7 @@ interface IGetCurrencyValue
 
 public class CurrencyValue
 {
-    [JsonProperty("Date")] 
+    [JsonProperty("Date")]
     private string dateJson { get; set; }
     [JsonIgnore]
     public DateTime Date
@@ -58,13 +61,15 @@ public class CurrencyValue
     public string Currency { get; }
     public int Amount { get; }
     public string InCurrency { get; }
-    public CurrencyValue(DateTime dt, double value, string currency, int amount, string inCurrency)
+    public int StatusCode { get; }
+    public CurrencyValue(DateTime dt, double value, string currency, int amount, string inCurrency, int statusCode)
     {
         this.Date = dt;
         this.Value = value;
         this.Currency = currency;
         this.Amount = amount;
         this.InCurrency = inCurrency;
+        this.StatusCode = statusCode;
     }
 }
 
@@ -110,8 +115,91 @@ class RandomValue : IGetCurrencyForDate
 {
     public CurrencyValue getValueForDate(DateTime dt, string currency)
     {
-        if (currency == "BTC") return new CurrencyValue(dt, new Random().NextDouble(), currency, 1, "USD");
-        else if (currency == "RUB") return new CurrencyValue(dt, new Random().NextDouble(), currency, 100, "BYN");
-        else return new CurrencyValue(dt, new Random().NextDouble(), currency, 1, "BYN");
+        if (currency == "BTC") return new CurrencyValue(dt, new Random().NextDouble(), currency, 1, "USD", 200);
+        else if (currency == "RUB") return new CurrencyValue(dt, new Random().NextDouble(), currency, 100, "BYN", 200);
+        else return new CurrencyValue(dt, new Random().NextDouble(), currency, 1, "BYN", 200);
     }
+}
+
+class ExternalAPI : IGetCurrencyForDate
+{
+    public CurrencyValue getValueForDate(DateTime dt, string currency)
+    {
+        if (currency == "RUB")
+        {
+            string json = "";
+            using (var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }))
+            {
+                client.BaseAddress = new Uri($"https://www.nbrb.by/api/exrates/rates/");
+                HttpResponseMessage response;
+                response = client.GetAsync($"298?ondate={dt.Year}-{dt.Month}-{dt.Day}").Result;
+                if (response.StatusCode == HttpStatusCode.NotFound) 
+                    return new CurrencyValue(dt, 0, currency, 0, "", 404);
+                json = response.Content.ReadAsStringAsync().Result;
+            }
+            var rate = JsonConvert.DeserializeObject<Rate>(json);
+            return new CurrencyValue(dt, (double)rate.Cur_OfficialRate, currency, rate.Cur_Scale, "BYN", 200);
+        }
+        else if (currency == "USD")
+        {
+            string json = "";
+            using (var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }))
+            {
+                client.BaseAddress = new Uri($"https://www.nbrb.by/api/exrates/rates/");
+                HttpResponseMessage response;
+                response = client.GetAsync($"145?ondate={dt.Year}-{dt.Month}-{dt.Day}").Result;
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                    return new CurrencyValue(dt, 0, currency, 0, "", 404);
+                json = response.Content.ReadAsStringAsync().Result;
+            }
+            var rate = JsonConvert.DeserializeObject<Rate>(json);
+            return new CurrencyValue(dt, (double)rate.Cur_OfficialRate, currency, rate.Cur_Scale, "BYN", 200);
+        }
+        else if (currency == "EUR")
+        {
+            string json = "";
+            using (var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }))
+            {
+                client.BaseAddress = new Uri($"https://www.nbrb.by/api/exrates/rates/");
+                HttpResponseMessage response;
+                response = client.GetAsync($"292?ondate={dt.Year}-{dt.Month}-{dt.Day}").Result;
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                    return new CurrencyValue(dt, 0, currency, 0, "", 404);
+                json = response.Content.ReadAsStringAsync().Result;
+            }
+            var rate = JsonConvert.DeserializeObject<Rate>(json);
+            return new CurrencyValue(dt, (double)rate.Cur_OfficialRate, currency, rate.Cur_Scale, "BYN", 200);
+        }
+        else if (currency == "BTC")
+        {
+            //string json = "";
+            //using (var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }))
+            //{
+            //    client.BaseAddress = new Uri($"https://rest.coinapi.io/v1/exchangerate/");
+            //    HttpResponseMessage response;
+            //    response = client.GetAsync($"BTC?invert=false292?ondate={dt.Year}-{dt.Month}-{dt.Day}").Result;
+            //    if (response.StatusCode == HttpStatusCode.NotFound)
+            //        return new CurrencyValue(dt, 0, currency, 0, "", 404);
+            //    json = response.Content.ReadAsStringAsync().Result;
+            //}
+            //var rate = JsonConvert.DeserializeObject<Rate>(json);
+            //return new CurrencyValue(dt, (double)rate.Cur_OfficialRate, currency, rate.Cur_Scale, "BYN", 200);
+            return new CurrencyValue(dt, new Random().NextDouble(), currency, 1, "USD", 200);
+        }
+        else
+        {
+            throw new Exception("Неизвестная валюта!"); 
+        }
+    }
+}
+
+public class Rate
+{
+    [Key]
+    public int Cur_ID { get; set; }
+    public DateTime Date { get; set; }
+    public string Cur_Abbreviation { get; set; }
+    public int Cur_Scale { get; set; }
+    public string Cur_Name { get; set; }
+    public decimal? Cur_OfficialRate { get; set; }
 }
