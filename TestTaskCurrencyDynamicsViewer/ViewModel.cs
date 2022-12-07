@@ -2,6 +2,7 @@
 using LiveCharts.Wpf;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -24,6 +25,7 @@ namespace TestTaskCurrencyDynamicsViewer
     public class ViewModel : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
+        private string logPath; 
         protected virtual void OnPropertyChanged([CallerMemberName] string PropertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(PropertyName));
@@ -150,6 +152,7 @@ namespace TestTaskCurrencyDynamicsViewer
             WindowWidth = Properties.Settings.Default.WindowWidth;
             WindowTop = Properties.Settings.Default.WindowTop;
             WindowLeft = Properties.Settings.Default.WindowLeft;
+            logPath = Path.Combine(AppContext.BaseDirectory, "clientLog.txt");
         }
 
         public RelayCommand ShowDataCommand
@@ -165,6 +168,7 @@ namespace TestTaskCurrencyDynamicsViewer
                     }
                     List<CurrencyValue> objs = new List<CurrencyValue>();
                     Title = "Просмотр курсов валют - получение данных из API";
+                    File.AppendAllLines(logPath, new List<string>() { $"Получение данных с сервера: с {LeftCurrentDt} по {RightCurrentDt} для валюты {SelectedCurrency}." });
                     string json = "";
                     using (var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }))
                     {
@@ -176,7 +180,9 @@ namespace TestTaskCurrencyDynamicsViewer
                         }
                         catch (AggregateException ex)
                         {
-                            MessageBox.Show("Сервер по адресу localhost:5001 не доступен. Убедитесь, что TestTaskCurrencyAPI.exe работает. ");
+                            string notificationText = "Сервер по адресу localhost:5001 не доступен. Убедитесь, что TestTaskCurrencyAPI.exe работает. ";
+                            File.AppendAllLines(logPath, new List<string>() { notificationText });
+                            MessageBox.Show(notificationText);
                             Title = "Просмотр курсов валют";
                             return;
                         }
@@ -186,7 +192,9 @@ namespace TestTaskCurrencyDynamicsViewer
                         }
                         catch (System.Net.Http.HttpRequestException)
                         {
-                            MessageBox.Show("Не удалось получить данные с сервера (localhost:5001)");
+                            string notificationText = "Не удалось получить данные с сервера (localhost:5001)";
+                            File.AppendAllLines(logPath, new List<string>() { notificationText });
+                            MessageBox.Show(notificationText);
                             Title = "Просмотр курсов валют";
                             return;
                         }
@@ -196,7 +204,11 @@ namespace TestTaskCurrencyDynamicsViewer
                     objs = JsonConvert.DeserializeObject<List<CurrencyValue>>(json).OrderBy(x => x.Date).ToList();
                     var notFound = objs.Where(x => x.StatusCode == 404).ToList();
                     if (notFound.Count > 0)
-                        MessageBox.Show($"Для указанного диапазона дат данные с {notFound.Min(x => x.Date)} до {notFound.Max(x => x.Date)} не доступны в API НБ РБ!");
+                    {
+                        string notificationText = $"Для указанного диапазона дат данные с {notFound.Min(x => x.Date)} до {notFound.Max(x => x.Date)} не доступны в API НБ РБ!";
+                        File.AppendAllLines(logPath, new List<string>() { notificationText });
+                        MessageBox.Show(notificationText);
+                    }                        
 
                     SeriesCollection = new SeriesCollection
                     {
