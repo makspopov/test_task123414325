@@ -36,6 +36,52 @@ namespace TestTaskCurrencyDynamicsViewer
             return true;
         }
 
+        private int _windowHeight; 
+        public int WindowHeight
+        {
+            get => _windowHeight;
+            set
+            {
+                Properties.Settings.Default.WindowHeight = value;
+                Properties.Settings.Default.Save();
+                Set(ref _windowHeight, value);
+            }
+        }
+        private int _windowWidth;
+        public int WindowWidth
+        {
+            get => _windowWidth;
+            set
+            {
+                Properties.Settings.Default.WindowWidth = value;
+                Properties.Settings.Default.Save();
+                Set(ref _windowWidth, value);
+            }
+        }
+
+        private int _windowTop;
+        public int WindowTop
+        {
+            get => _windowTop;
+            set
+            {
+                Properties.Settings.Default.WindowTop = value;
+                Properties.Settings.Default.Save(); 
+                Set(ref _windowTop, value);
+            }
+        }
+        private int _windowLeft;
+        public int WindowLeft
+        {
+            get => _windowTop;
+            set
+            {
+                Properties.Settings.Default.WindowLeft = value;
+                Properties.Settings.Default.Save();
+                Set(ref _windowLeft, value);
+            }
+        }
+
         private DateTime periodFrom = DateTime.Today.AddDays(-10);
         private DateTime periodTo = DateTime.Today;
         public DateTime leftMinDt => DateTime.Today.AddYears(-5);
@@ -46,22 +92,25 @@ namespace TestTaskCurrencyDynamicsViewer
             set
             {
                 if (value >= leftMinDt & value <= RightCurrentDt)
-                    Set(ref periodFrom, value);
-                else
                 {
-                    LeftCurrentDt = periodFrom;
-                    MessageBox.Show("Начальная дата должна быть меньше конечной!"); 
-                }
-                    //return;
-                    //return periodFrom;
-                    //throw new Exception("Wrong date!"); 
-                    
+                    Properties.Settings.Default.LeftDate = value;
+                    Properties.Settings.Default.Save();
+                    Set(ref periodFrom, value);
+                }                    
             }
         }
         public DateTime RightCurrentDt
         {
             get => periodTo;
-            set => Set(ref periodTo, value);
+            set
+            {
+                if (value >= LeftCurrentDt & value <= rightMaxDt)
+                {
+                    Properties.Settings.Default.RightDate = value;
+                    Properties.Settings.Default.Save();
+                    Set(ref periodTo, value);
+                }                
+            }
         }
         private string inCurrency;
         public string InCurrency
@@ -80,16 +129,27 @@ namespace TestTaskCurrencyDynamicsViewer
         public string SelectedCurrency
         {
             get => currentCurrency;
-            set => Set(ref currentCurrency, value);
+            set
+            {
+                Properties.Settings.Default.Currency = value;
+                Properties.Settings.Default.Save(); 
+                Set(ref currentCurrency, value);
+            }
         }
 
         public ObservableCollection<string> CurrencyNames { get; set; }
 
         public ViewModel()
         {
-            CurrencyNames = new ObservableCollection<string> { "RUB", "USD", "EUR", "BTC" };
-            SelectedCurrency = "USD";
+            CurrencyNames = new ObservableCollection<string> { "RUB", "USD", "EUR" };
             Title = "Просмотр курсов валют";
+            SelectedCurrency = Properties.Settings.Default.Currency;
+            LeftCurrentDt = Properties.Settings.Default.LeftDate;
+            RightCurrentDt = Properties.Settings.Default.RightDate;
+            WindowHeight = Properties.Settings.Default.WindowHeight;
+            WindowWidth = Properties.Settings.Default.WindowWidth;
+            WindowTop = Properties.Settings.Default.WindowTop;
+            WindowLeft = Properties.Settings.Default.WindowLeft;
         }
 
         public RelayCommand ShowDataCommand
@@ -98,6 +158,11 @@ namespace TestTaskCurrencyDynamicsViewer
             {
                 return new RelayCommand(() =>
                 {
+                    if (LeftCurrentDt > RightCurrentDt)
+                    {
+                        MessageBox.Show("Начало периода должно быть раньше, чем конец!");
+                        return;
+                    }
                     List<CurrencyValue> objs = new List<CurrencyValue>();
                     Title = "Просмотр курсов валют - получение данных из API";
                     string json = "";
@@ -139,7 +204,7 @@ namespace TestTaskCurrencyDynamicsViewer
                         {
                             Title = $"Курс {(objs.FirstOrDefault(x => x.StatusCode != 404)?.Amount + " " ?? "")}{SelectedCurrency}",
                             Values = new ChartValues<double>(objs.Select(y => y.Value).ToList())
-                        }, 
+                        },
                         new LineSeries
                         {
                             Title = $"Минимальный курс",
