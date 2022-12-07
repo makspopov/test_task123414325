@@ -21,6 +21,7 @@
             <Label Content="Начальная дата" Margin="10"/>
             <DatePicker SelectedDateFormat="Short" 
                     SelectedDate="{Binding Path=LeftCurrentDt}"
+                    DisplayDate="{Binding Path=LeftCurrentDt}"
                     DisplayDateEnd="{Binding Path=RightCurrentDt, Mode=OneWay}"
                     DisplayDateStart="{Binding Path=leftMinDt, Mode=OneWay}"
                   FirstDayOfWeek="Monday" Margin="10"/>
@@ -28,6 +29,7 @@
             <Label Content="Конечная дата" Margin="10"/>
             <DatePicker SelectedDateFormat="Short" 
                         SelectedDate="{Binding Path=RightCurrentDt}"
+                        DisplayDate="{Binding Path=RightCurrentDt}"
                         DisplayDateStart="{Binding Path=LeftCurrentDt, Mode=OneWay}"
                         DisplayDateEnd="{Binding Path=rightMaxDt, Mode=OneWay}" 
                   FirstDayOfWeek="Monday" Margin="10"/>

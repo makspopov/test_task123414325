@@ -1,5 +1,6 @@
 ﻿using LiveCharts;
 using LiveCharts.Wpf;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -42,7 +43,20 @@ namespace TestTaskCurrencyDynamicsViewer
         public DateTime LeftCurrentDt
         {
             get => periodFrom;
-            set => Set(ref periodFrom, value);
+            set
+            {
+                if (value >= leftMinDt & value <= RightCurrentDt)
+                    Set(ref periodFrom, value);
+                else
+                {
+                    LeftCurrentDt = periodFrom;
+                    MessageBox.Show("Начальная дата должна быть меньше конечной!"); 
+                }
+                    //return;
+                    //return periodFrom;
+                    //throw new Exception("Wrong date!"); 
+                    
+            }
         }
         public DateTime RightCurrentDt
         {
@@ -125,6 +139,16 @@ namespace TestTaskCurrencyDynamicsViewer
                         {
                             Title = $"Курс {(objs.FirstOrDefault(x => x.StatusCode != 404)?.Amount + " " ?? "")}{SelectedCurrency}",
                             Values = new ChartValues<double>(objs.Select(y => y.Value).ToList())
+                        }, 
+                        new LineSeries
+                        {
+                            Title = $"Минимальный курс",
+                            Values = new ChartValues<double>(objs.Select(y => objs.Min(q => q.Value)).ToList())
+                        },
+                        new LineSeries
+                        {
+                            Title = $"Максимальный курс",
+                            Values = new ChartValues<double>(objs.Select(y => objs.Max(q => q.Value)).ToList())
                         }
                     };
                     Labels = objs.Select(y => y.Date.ToString("dd.MM.yy")).ToArray();
